@@ -1,0 +1,268 @@
+# 编程环境Python3.6.3和opencv-python3.4.2
+
+# 把lena 512*512图像灰度级逐级递减8-1显示
+import cv2
+
+lena = cv2.imread("./lena.bmp")
+img2 = lena.copy()
+img4 = lena.copy()
+img8 = lena.copy()
+img16 = lena.copy()
+img32 = lena.copy()
+img64 = lena.copy()
+img128 = lena.copy()
+
+def getvalue(level, pixel):
+    num = level - 1
+    size = 256 // num
+    for i in range(1, level):
+        if pixel > size * i:
+            continue
+        mid_value = size * (2*i-1) // 2
+        left = size * (i-1)
+        right = size * i - 1
+        if pixel < mid_value:
+            return left
+        else:
+            return right
+    return pixel
+
+def quantification(input_img, level):
+    for i in range(512):
+        for j in range(512):
+            for k in range(3):
+                input_img[i, j, k] = getvalue(level, input_img[i, j, k])
+    return input_img
+
+img2 = quantification(img2, 2)
+img4 = quantification(img4, 4)
+img8 = quantification(img8, 8)
+img16 = quantification(img16, 16)
+img32 = quantification(img32, 32)
+img64 = quantification(img64, 64)
+img128 = quantification(img128, 128)
+
+cv2.imshow("img2", img2)
+cv2.imshow("img4", img4)
+cv2.imshow("img8", img8)
+cv2.imshow("img16", img16)
+cv2.imshow("img32", img32)
+cv2.imshow("img64", img64)
+cv2.imshow("img128", img128)
+
+cv2.imwrite('./lena_2.bmp', img2)
+cv2.imwrite('./lena_4.bmp', img4)
+cv2.imwrite('./lena_8.bmp', img8)
+cv2.imwrite('./lena_16.bmp', img16)
+cv2.imwrite('./lena_32.bmp', img32)
+cv2.imwrite('./lena_64.bmp', img64)
+cv2.imwrite('./lena_128.bmp', img128)
+
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+
+# 计算lena图像的均值方差
+# 调用库函数版本
+import cv2
+
+lena = cv2.imread("./lena.bmp")
+mean, stddv = cv2.meanStdDev(lena)#均值，标准差
+var = stddv * stddv
+
+print("均值：", mean[0])#均值
+print("标准差：", stddv[0])#标准差
+print("方差：", var[0])#方差
+
+
+# 计算lena图像的均值方差
+# 自己编写函数版本
+import cv2
+
+lena = cv2.imread("./lena.bmp")
+sum = 0
+for i in range(512):
+    for j in range(512):
+        sum = sum + lena[i, j, 0]
+average = sum / 512 / 512
+var = 0
+for i in range(512):
+    for j in range(512):
+        var = var + (lena[i, j, 0] - average)*(lena[i, j, 0] - average)
+var = var / 512 / 512
+
+print("均值：", average)#均值
+print("方差：", var)#方差
+
+
+# 把lena图像用近邻、双线性和双三次插值法zoom到2048*2048
+# 调用库函数版本
+import cv2
+
+lena = cv2.imread("./lena.bmp")
+nearest = cv2.resize(lena, (2048, 2048), interpolation=cv2.INTER_NEAREST)
+linear = cv2.resize(lena, (2048, 2048), interpolation=cv2.INTER_LINEAR)
+cubic = cv2.resize(lena, (2048, 2048), interpolation=cv2.INTER_CUBIC)
+
+cv2.imshow('nearest', nearest)
+cv2.imshow('linear', linear)
+cv2.imshow('cubic', cubic)
+
+cv2.imwrite('./lena_nearest.bmp', nearest)
+cv2.imwrite('./lena_linear.bmp', linear)
+cv2.imwrite('./lena_cubic.bmp', cubic)
+
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+
+# 把lena图像用近邻、双线性和双三次插值法zoom到2048*2048
+# 自己编写函数版本
+import cv2
+import numpy as np
+
+lena = cv2.imread("./lena.bmp")
+height, width, channels = lena.shape
+h_scale = 2048 / height
+w_scale = 2048 / width
+
+def nearest():
+    emptyImage1 = np.zeros((2048, 2048, 3), np.uint8)
+    for i in range(2048):
+        for j in range(2048):
+            x = int(i/h_scale)
+            y = int(j/w_scale)
+            emptyImage1[i, j] = lena[x, y]
+    return emptyImage1
+
+def linear():
+    emptyImage2 = np.zeros((2048, 2048, 3), np.uint8)
+    value = [0, 0, 0]
+    for i in range(2048):
+        for j in range(2048):
+            x = int(i/h_scale)
+            y = int(j/w_scale)
+            u = i/h_scale - x
+            v = j/w_scale - y
+            x = x - 1
+            y = y - 1
+            for k in range(3):
+                if x >= 0 and y >= 0 and x + 1 <= 511 and y + 1 <= 511:
+                    value[k] = int(lena[x, y][k]*(1-u)*(1-v)+lena[x, y+1][k]*(1-u)*v+lena[x+1, y][k]*u*(1-v)+lena[x+1, y+1][k]*u*v)
+            emptyImage2[i, j] = (value[0], value[1], value[2])
+    return emptyImage2
+
+def S(x):
+    x = np.abs(x)
+    if 0 <= x < 1:
+        return 1 - 2 * x * x + x * x * x
+    if 1 <= x < 2:
+        return 4 - 8 * x + 5 * x * x - x * x * x
+    else:
+        return 0
+
+def cubic():
+    emptyImage3 = np.zeros((2048, 2048, 3), np.uint8)
+    for i in range(2048):
+        for j in range(2048):
+            x = int(i / h_scale)
+            y = int(j / w_scale)
+            p = i / h_scale - x
+            q = j / w_scale - y
+            x = x - 1
+            y = y - 1
+            A = np.array([
+                [S(1 + p), S(p), S(1 - p), S(2 - p)]
+            ])
+            if x-1 >= 0 and y-1 >= 0 and x+2 <= 511 and y+2 <= 511:
+                B = np.array([
+                    [lena[x - 1, y - 1], lena[x - 1, y],
+                     lena[x - 1, y + 1],lena[x - 1, y + 1]],
+                    [lena[x, y - 1], lena[x, y],
+                     lena[x, y + 1], lena[x, y + 2]],
+                    [lena[x + 1, y - 1], lena[x + 1, y],
+                     lena[x + 1, y + 1], lena[x + 1, y + 2]],
+                    [lena[x + 2, y - 1], lena[x + 2, y],
+                     lena[x + 2, y + 1], lena[x + 2, y + 1]]
+                ])
+                C = np.array([
+                        [S(1 + q)],
+                        [S(q)],
+                        [S(1 - q)],
+                        [S(2 - q)]
+                    ])
+                blue = np.dot(np.dot(A, B[:, :, 0]), C)[0, 0]
+                green = np.dot(np.dot(A, B[:, :, 1]), C)[0, 0]
+                red = np.dot(np.dot(A, B[:, :, 2]), C)[0, 0]
+
+                def adjust(value):
+                    if value > 255:
+                        value = 255
+                    elif value < 0:
+                        value = 0
+                    return value
+
+                blue = adjust(blue)
+                green = adjust(green)
+                red = adjust(red)
+                emptyImage3[i, j] = np.array([blue, green, red], dtype=np.uint8)
+
+    return emptyImage3
+
+nearest_result = nearest()
+linear_result = linear()
+cubic_result = cubic()
+cv2.imshow('nearest', nearest_result)
+cv2.imwrite('./lena_nearest_f_new.bmp', nearest_result)
+cv2.imshow('linear', linear_result)
+cv2.imwrite('./lena_linear_f_new.bmp', linear_result)
+cv2.imshow('cubic', cubic_result)
+cv2.imwrite('./lena_cubic_f_new.bmp', cubic_result)
+
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+
+'''把lena和elain图像分别进行水平shear(参数可设置为1.5，或者自行选择)
+和旋转30度，并采用用近邻、双线性和双三次插值法zoom到2048*2048'''
+# 调用库函数版本
+import cv2
+import numpy as np
+
+lena = cv2.imread("./lena.bmp")
+elain = cv2.imread("./elain1.bmp")
+
+M_r = cv2.getRotationMatrix2D((256, 256), 30, 1)
+M_s = np.float32([[1, 0, 0], [1.5, 1, 0]])
+
+lena_shear = cv2.warpAffine(lena, M_s, (512, 1280))
+lena_r = cv2.warpAffine(lena, M_r, (512, 512))
+elain_shear = cv2.warpAffine(elain, M_s, (512, 1280))
+elain_r = cv2.warpAffine(elain, M_r, (512, 512))
+
+lena_shear_nearest = cv2.resize(lena_shear, (2048, 2048), interpolation=cv2.INTER_NEAREST)
+lena_shear_linear = cv2.resize(lena_shear, (2048, 2048), interpolation=cv2.INTER_LINEAR)
+lena_shear_cubic = cv2.resize(lena_shear, (2048, 2048), interpolation=cv2.INTER_CUBIC)
+elain_shear_nearest = cv2.resize(elain_shear, (2048, 2048), interpolation=cv2.INTER_NEAREST)
+elain_shear_linear = cv2.resize(elain_shear, (2048, 2048), interpolation=cv2.INTER_LINEAR)
+elain_shear_cubic = cv2.resize(elain_shear, (2048, 2048), interpolation=cv2.INTER_CUBIC)
+
+lena_r_nearest = cv2.resize(lena_r, (2048, 2048), interpolation=cv2.INTER_NEAREST)
+lena_r_linear = cv2.resize(lena_r, (2048, 2048), interpolation=cv2.INTER_LINEAR)
+lena_r_cubic = cv2.resize(lena_r, (2048, 2048), interpolation=cv2.INTER_CUBIC)
+elain_r_nearest = cv2.resize(elain_r, (2048, 2048), interpolation=cv2.INTER_NEAREST)
+elain_r_linear = cv2.resize(elain_r, (2048, 2048), interpolation=cv2.INTER_LINEAR)
+elain_r_cubic = cv2.resize(elain_r, (2048, 2048), interpolation=cv2.INTER_CUBIC)
+
+cv2.imwrite('./lena_shear_nearest.bmp', lena_shear_nearest)
+cv2.imwrite('./lena_shear_linear.bmp', lena_shear_linear)
+cv2.imwrite('./lena_shear_cubic.bmp', lena_shear_cubic)
+cv2.imwrite('./elain_shear_nearest.bmp', elain_shear_nearest)
+cv2.imwrite('./elain_shear_linear.bmp', elain_shear_linear)
+cv2.imwrite('./elain_shear_cubic.bmp', elain_shear_cubic)
+cv2.imwrite('./lena_rotation_nearest.bmp', lena_r_nearest)
+cv2.imwrite('./lena_rotation_linear.bmp', lena_r_linear)
+cv2.imwrite('./lena_rotation_cubic.bmp', lena_r_cubic)
+cv2.imwrite('./elain_rotation_nearest.bmp', elain_r_nearest)
+cv2.imwrite('./elain_rotation_linear.bmp', elain_r_linear)
+cv2.imwrite('./elain_rotation_cubic.bmp', elain_r_cubic)
